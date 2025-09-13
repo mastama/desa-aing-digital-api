@@ -14,21 +14,49 @@ return new class extends Migration
         Schema::create('social_assistance_recipients', function (Blueprint $table) {
             $table->uuid('id')->primary();
 
+            // FK ke program bantuan sosial (SocialAssistance)
             $table->uuid('social_assistance_id');
-            $table->foreign('social_assistance_id')->references('id')->on('social_assistances')->onDelete('cascade');
+            $table->foreign('social_assistance_id', 'sar_sa_fk')
+                    ->references('id')->on('social_assistances')
+                    ->cascadeOnDelete();
 
+            // FK ke kepala keluarga HoF (penerima bantuan)
             $table->uuid('head_of_family_id');
-            $table->foreign('head_of_family_id')->references('id')->on('head_of_families')->onDelete('cascade');
+            $table->foreign('head_of_family_id', 'sar_hof_fk')
+                    ->references('id')->on('head_of_families')
+                    ->cascadeOnDelete();
 
+            // Nominal real yang disalurkan (wajib diisi)
             $table->decimal('amount', 10, 2);
+
+            // Alasan (bisa diisi jika status adalah 'rejected')
             $table->longText('reason')->nullable();
-            $table->enum('bank', ['BCA', 'BNI', 'BRI', 'Mandiri', 'Danamon', 'CIMB Niaga', 'Permata', 'BTN', 'Maybank', 'Panin', 'OCBC NISP', 'UOB', 'Commonwealth'])->nullable();
-            $table->string('account_number')->nullable();
+
+            // Informasi rekening bank penerima
+            $table->string('bank', 50)->nullable();
+
+            $table->string('account_number', 64)->nullable();
             $table->string('proof_of_transfer')->nullable();
+
             $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
+
+            // Periode penyaluran bantuan
+            $table->unsignedTinyInteger('period_month'); // 1-12
+            $table->unsignedSmallInteger('period_year'); // 4 digit year (2025, 2026, etc.)
 
             $table->softDeletes();
             $table->timestamps();
+
+            // Indexes for optimization
+            $table->index(['social_assistance_id', 'head_of_family_id'], 'sar_sa_hof_idx');
+            $table->index(['status'], 'sar_status_idx');
+            $table->index(['period_month', 'period_year'], 'sar_period_idx');
+
+            // Cegah duplikasi penerima dalam periode yang sama
+            $table->unique(
+                ['social_assistance_id', 'head_of_family_id', 'period_month', 'period_year'], 
+                'sar_unique_program_hof_period'
+            );
         });
     }
 
