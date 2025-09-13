@@ -11,8 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('head_of_families', function (Blueprint $table) {
+        Schema::create('family_members', function (Blueprint $table) {
             $table->uuid('id')->primary();
+
+            $table->uuid('head_of_family_id');
+            $table->foreign('head_of_family_id')->references('id')->on('head_of_families')->onDelete('cascade');
 
             $table->uuid('user_id');
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
@@ -24,6 +27,7 @@ return new class extends Migration
             $table->string('phone_number', 13)->nullable();
             $table->string('occupation')->nullable();
             $table->enum('marital_status', ['single', 'married', 'divorced', 'widowed']);
+            $table->enum('relation', ['spouse', 'child', 'parent', 'sibling', 'wife', 'husband', 'other']);
 
             $table->softDeletes();
             $table->timestamps();
@@ -35,6 +39,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('head_of_families');
+        Schema::dropIfExists('family_members');
     }
 };

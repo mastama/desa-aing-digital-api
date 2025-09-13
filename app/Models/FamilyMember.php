@@ -6,11 +6,12 @@ use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class HeadOfFamily extends Model
+class FamilyMember extends Model
 {
     use SoftDeletes, HasUuid;
 
     protected $fillable = [
+        'head_of_family_id',
         'user_id',
         'profile_picture',
         'identity_number',
@@ -26,8 +27,8 @@ class HeadOfFamily extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function familyMembers()
+    public function headOfFamily()
     {
-        return $this->hasMany(FamilyMember::class);
+        return $this->belongsTo(HeadOfFamily::class, 'head_of_family_id');
     }
 }
