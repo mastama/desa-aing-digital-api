@@ -57,4 +57,12 @@ class User extends Authenticatable
     {
         return $this->hasOne(FamilyMember::class);
     }
+
+    /**
+     * User bisa mengajukan ke banyak proyek (1 user : N DevelopmentApplicant).
+     */
+    public function developmentApplicants()
+    {
+        return $this->hasMany(DevelopmentApplicant::class);
+    }
 }
