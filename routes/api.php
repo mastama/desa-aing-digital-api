@@ -5,6 +5,8 @@ use Illuminate\Support\Facades\Route;
 
 // CRUD users:
 Route::apiResource('users', UserController::class);
+Route::get('users/all/paginated', [UserController::class, 'getAllPaginated'])
+     ->name('users.paginated-all');
 
 // -> POST /api/users
 // -> GET /api/users/{id}

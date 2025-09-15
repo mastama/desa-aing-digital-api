@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Interfaces\UserRepositoryInterface;
+use App\Http\Resources\UserResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
@@ -33,57 +34,81 @@ class UserController extends Controller
      * Listing user dengan pencarian & pagination.
      *
      * Query params: ?search=...&per_page=...&all=true&limit=...
-     * - Jika all=true -> ambil semua (dengan optional limit).
-     * - Jika tidak, gunakan pagination (per_page default 15).
+     * - ?all=true&limit=...   -> ambil semua (dibatasi limit)
+     * - default               -> paginated (?per_page=...)
      */
     public function index(Request $request)
     {
-        $rid = $this->getRequestId($request);
-        $search = $request->query('search');
-        $all = filter_var($request->query('all'), FILTER_VALIDATE_BOOLEAN);
-        $limit = (int) $request->query('limit', 100);
+        $rid     = $this->getRequestId($request);
+        $search  = $request->query('search');
+        $all     = filter_var($request->query('all'), FILTER_VALIDATE_BOOLEAN);
+        $limit   = (int) $request->query('limit', 100);
         $perPage = (int) $request->query('per_page', 15);
-        
-        Log::info('users.index: incoming request', compact('rid', 'search', 'all', 'limit', 'perPage'));
+
+        Log::info('users.index: incoming', compact('rid','search','all','limit','perPage'));
 
         try {
             if ($all) {
-                // Ambil semua user, dengan optional limit
-                $data = $this->users->getAll($search, $limit ?: 200, true);
-                Log::info('users.index: fetched all (limited)', ['rid' => $rid, 'count' => $data->count()]);
+                // Ambil semua (dibatasi limit)
+                $collection = $this->users->getAll($search, $limit ?: 200, true);
 
-                return ResponseHelper::jsonResponse(
-                    true, 
-                    'Fetched all users', 
-                    $data, 
-                    200
+                Log::info('users.index: fetched all', ['rid' => $rid, 'count' => $collection->count()]);
+
+                // Pakai Resource agar output seragam
+                return ResponseHelper::jsonResponseAll(
+                    true,
+                    'Fetched all users',
+                    UserResource::collection($collection), // <- sudah jadi array saat di-json
+                    200,
+                    ['mode' => 'all']
                 );
             }
 
-            // Mode pagination
+            // Paginated
             $paginator = $this->users->getAllPaginated($search, $perPage ?: 15);
+
             Log::info('users.index: fetched paginated', [
-                'rid' => $rid, 
-                'current_page' => $paginator->currentPage(), 
-                'per_page' => $paginator->perPage(), 
-                'total' => $paginator->total()
+                'rid'          => $rid,
+                'current_page' => $paginator->currentPage(),
+                'per_page'     => $paginator->perPage(),
+                'total'        => $paginator->total(),
             ]);
 
-            return ResponseHelper::jsonResponse(
-                true, 
-                'Fetched paginated users', 
-                $paginator, 
-                200
+            // Ambil item + bungkus Resource, meta pagination akan disusun oleh ResponseHelper
+            // Transform tiap item pakai Resource
+            $items = UserResource::collection(collect($paginator->items()));
+
+            return ResponseHelper::jsonResponseAll(
+                true,
+                'Fetched paginated users',
+                // kirim paginator ke helper agar meta pagination otomatis
+                $items,
+                200,
+                [
+                    // meta pagination dikirim terpisah
+                    'mode'         => 'paginated',
+                    'current_page' => $paginator->currentPage(),
+                    'per_page'     => $paginator->perPage(),
+                    'total'        => $paginator->total(),
+                    'last_page'    => $paginator->lastPage(),
+                ]
             );
         } catch (\Throwable $e) {
             Log::error('users.index: failed', ['rid' => $rid, 'error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
-            return ResponseHelper::jsonResponse(
-                false, 
-                'Failed to fetch users', 
-                null, 
-                500
-            );
+            return ResponseHelper::jsonResponse(false, 'Failed to fetch users', null, 500);
         }
+    }
+
+    /**
+     * GET /api/users/all/paginated
+     * Endpoint opsional jika kamu tetap ingin path terpisah untuk pagination.
+     * Sebenarnya index() sudah mendukung ini, tapi ini disediakan agar eksplisit.
+     */
+    public function getAllPaginated(Request $request)
+    {
+        // Delegasikan ke index (tanpa mode all)
+        $request->merge(['all' => false]);
+        return $this->index($request);
     }
 
     /**
