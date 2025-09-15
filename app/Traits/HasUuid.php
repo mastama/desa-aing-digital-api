@@ -6,7 +6,9 @@ use Illuminate\Support\Str;
 
 trait HasUuid
 {
-    // Otomatis set UUID saat creating
+    /**
+     * Otomatis set nilai PK (id) sebagai UUID saat creating.
+     */
     protected static function bootHasUuid(): void
     {
         static::creating(function ($model) {
@@ -16,7 +18,14 @@ trait HasUuid
         });
     }
 
-    // Properti untuk Eloquent
-    public $incrementing = false;
-    protected $keyType = 'string';
+    /**
+     * Inisialisasi trait pada model:
+     * - PK bertipe string
+     * - PK tidak auto-increment (karena kita pakai UUID)
+     */
+    protected function initializeHasUuid(): void
+    {
+        $this->setKeyType('string');
+        $this->setIncrementing(false);
+    }
 }
